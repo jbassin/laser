@@ -1,0 +1,45 @@
+WHITESPACE = _{ " " | "\t" | "\n" }
+
+integer = @{ ASCII_DIGIT+ }
+float = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+? }
+number = _{ "-"? ~ ( float | integer ) }
+
+variable = @{ (LETTER | "_")+ }
+atom = @{ ":" ~ variable }
+type_ = @{ (LETTER | "_")+ }
+generic_type = @{ "'" ~ type_ }
+identifier = _{ atom | variable }
+
+true_ = @{ "true" }
+false_ = @{ "false" }
+boolean = _{ true_ | false_ }
+
+literal = { number | boolean | identifier }
+
+operator_tail = _{ ("$" | "%" | "*" | "+" | "-" | "/" | ":" | "<" | "=" | ">" | "@" | "^" | "|" | "~") }
+
+level_0_expr = _{
+  if_statement
+  | ( "(" ~ expression ~ ")" )
+  | literal
+}
+
+level_1_op = @{ ("*" | "/" | "%") ~ operator_tail* }
+level_1_bin_op = { level_0_expr ~ level_1_op ~ level_1_expr }
+level_1_expr = _{ level_1_bin_op | level_0_expr }
+
+level_2_op = @{ ("+" | "-") ~ operator_tail* }
+level_2_bin_op = { level_1_expr ~ level_2_op ~ level_2_expr }
+level_2_expr = _{ level_2_bin_op | level_1_expr }
+
+assignment = { ( variable ~ "=" ~ level_3_expr ) }
+typed_assignment = { ( variable ~ ":" ~ type_ ~ "=" ~ level_3_expr ) }
+level_3_expr = _{ typed_assignment | assignment | level_2_expr }
+
+statement = { level_3_expr ~ ";" ~ level_4_expr }
+level_4_expr = _{ statement | level_3_expr }
+
+if_statement = { "if" ~ level_4_expr ~ "then" ~ level_4_expr ~ "else" ~ level_4_expr }
+level_5_expr = _{ if_statement | level_4_expr }
+
+expression = { level_5_expr }
