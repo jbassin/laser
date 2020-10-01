@@ -1,0 +1,99 @@
+use crate::ast::{Expression, Expression::*, Location, Operator};
+
+grammar;
+
+FLOAT: String = r"[0-9][_0-9]*\.[_0-9]*" => <>.to_string();
+INTEGER: String = r"[0-9][_0-9]*" => <>.to_string();
+
+VARIABLE: String = r"[\p{Letter}_]+" => <>.to_string();
+ATOM: String = r":[\p{Letter}_]+" => <>.trim_start_matches(":").to_string();
+
+Float: Expression = {
+    <s:@L> <f:FLOAT> <e:@L> => Float {
+        location: Location::new(s, e),
+        value: f,
+    }
+}
+
+Integer: Expression = {
+    <s:@L> <i:INTEGER> <e:@L> => Integer {
+        location: Location::new(s, e),
+        value: i,
+    }
+}
+
+Variable: Expression = {
+    <s:@L> <v:VARIABLE> <e:@L> => Variable {
+        location: Location::new(s, e),
+        value: v,
+    }
+}
+
+Atom: Expression = {
+    <s:@L> <a:ATOM> <e:@L> => Atom {
+        location: Location::new(s, e),
+        value: a,
+    }
+}
+
+Keyword_true: Expression = {
+    <s:@L> "true" <e:@L> => Boolean {
+        location: Location::new(s, e),
+        value: "true".to_string(),
+    }
+}
+
+Keyword_false: Expression = {
+    <s:@L> "false" <e:@L> => Boolean {
+        location: Location::new(s, e),
+        value: "false".to_string(),
+    }
+}
+
+Literal: Expression = {
+    Float => <>,
+    Integer => <>,
+    Variable => <>,
+    Atom => <>,
+    Keyword_true => <>,
+    Keyword_false => <>,
+}
+
+Level_0_expr: Box<Expression> = {
+    Literal => Box::new(<>),
+    "(" <e:Expr> ")" => e,
+}
+
+Level_1_operator: Operator = {
+    <s:@L> <op:r"\*\*[$%\*+-/:<>=@^\|~]*"> <e:@L> => {
+        if op.len() == 2 {
+            Operator::Pow {
+                location: Location::new(s, e),
+                value: op.to_string(),
+            }
+        } else {
+            Operator::Custom {
+                location: Location::new(s, e),
+                value: op.to_string(),
+            }
+        }
+    }
+}
+
+Level_1_binary_operation: Expression = {
+    <s:@L> <l:Level_1_expr> <op:Level_1_operator> <r:Level_0_expr> <e:@L> => BinaryOperation {
+        location: Location::new(s, e),
+        operator: op,
+        left: l,
+        right: r,
+    },
+}
+
+Level_1_expr: Box<Expression> = {
+    Level_1_binary_operation => Box::new(<>),
+    Level_0_expr => <>,
+}
+
+pub Expr: Box<Expression> = {
+    Level_1_expr => <>
+}
